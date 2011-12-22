@@ -1519,8 +1519,8 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 	/*
 	 * Get the album detail page and extract the year and cover art URL.
 	 */
-	status = _BarFlyFetchURL(song->albumDetailURL, (uint8_t**)&album_buf,
-			NULL, settings);
+/* 	status = _BarFlyFetchURL(song->albumDetailURL, (uint8_t**)&album_buf, */
+/* 			NULL, settings); */
 	if (status != 0) {
 		BarUiMsg(settings, MSG_DEBUG, "Couldn't get the album detail page.  "
 				"The year and cover art will not be added to the tag.\n");
