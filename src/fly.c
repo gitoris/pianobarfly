@@ -1026,9 +1026,10 @@ static int _BarFlyTagID3Write(BarFly_t const* fly, uint8_t const* cover_art,
 		size_t cover_size, BarSettings_t const* settings)
 {
 	int exit_status = 0;
-	char * s = NULL;
+	char* s = NULL;
 	ID3Frame* frame = NULL;
 	ID3Field* field = NULL;
+	char* mime_type = NULL;
 
 	// new tag
 	ID3Tag* tag = ID3Tag_New();
@@ -1113,6 +1114,44 @@ static int _BarFlyTagID3Write(BarFly_t const* fly, uint8_t const* cover_art,
 		} else {
 			BarUiMsg(settings, MSG_ERR, "Error adding the disc to the tag.\n");
 			goto error;
+		}
+	}
+
+	// cover art
+	if (cover_art != NULL) {
+		if ((cover_art[0] == 0xFF) && (cover_art[1] == 0xD8)) {
+			mime_type = "image/jpeg";
+			printf("%s\n", mime_type);
+		} else if ((cover_art[0] == 0x89) &&
+			   (cover_art[1] == 0x50) &&
+			   (cover_art[2] == 0x4E) &&
+			   (cover_art[3] == 0x47) &&
+			   (cover_art[4] == 0x0D) &&
+			   (cover_art[5] == 0x0A) &&
+			   (cover_art[6] == 0x1A) &&
+			   (cover_art[7] == 0x0A)) {
+			mime_type = "image/png";
+			printf("%s\n", mime_type);
+		} else {
+			mime_type = NULL;
+		}
+
+		if (mime_type != NULL) {
+			frame = ID3Frame_NewID(ID3FID_PICTURE);
+			// set the picture type (3 = front cover)
+			field = ID3Frame_GetField(frame, ID3FN_PICTURETYPE);
+			ID3Field_Clear(field);
+			ID3Field_SetINT(field, 3);
+			// set the mime type
+			field = ID3Frame_GetField(frame, ID3FN_MIMETYPE);
+			ID3Field_Clear(field);
+			ID3Field_SetASCII(field, mime_type);
+			// embed the cover art
+			field = ID3Frame_GetField(frame, ID3FN_DATA);
+			ID3Field_Clear(field);
+			ID3Field_SetBINARY(field, cover_art, cover_size);
+			ID3Tag_AddFrame(tag, frame);
+			ID3Frame_Delete(frame);
 		}
 	}
 
