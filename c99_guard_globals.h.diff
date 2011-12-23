@@ -1,0 +1,17 @@
+--- include/id3/globals.h.old	2011-12-22 16:13:37.000000000 -0500
++++ include/id3/globals.h	2011-12-22 16:14:01.000000000 -0500
+@@ -83,10 +83,14 @@
+ #define ID3_C_VAR extern
+ 
+ #ifndef __cplusplus
++#if __STDC_VERSION__ < 199901L
+ 
+ typedef int bool;
+ #  define false (0)
+ #  define true (!false)
++#else
++#include <stdbool.h>
++#endif
+ 
+ #endif /* __cplusplus */
+ 
