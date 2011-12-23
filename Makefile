@@ -140,8 +140,7 @@ clean:
 all: pianobarfly
 
 debug: pianobar
-debug: CFLAGS=-pedantic -ggdb -Wall -Wmissing-declarations -Wshadow
-debug: CFLAGS+=-DDEBUG
+debug: CFLAGS=-pedantic -ggdb -Wall -Wmissing-declarations -Wshadow -Wcast-qual
 
 waitress-test: CFLAGS+= -DTEST
 waitress-test: ${LIBWAITRESS_OBJ}
