@@ -25,6 +25,7 @@
  * IN THE SOFTWARE.
  */
 
+#define _BSD_SOURCE /* mkstemp() */
 #if defined ENABLE_MAD && ENABLE_ID3TAG
 
 #include <assert.h>
@@ -233,10 +234,12 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 	id3_length_t size2;
 	id3_byte_t* tag_buffer = NULL;
 	FILE* audio_file = NULL;
-	FILE* tmp_file = NULL;
+	int tmp_file_fd = -1;
 	uint8_t audio_buffer[BAR_FLY_COPY_BLOCK_SIZE];
-	char tmp_file_path[L_tmpnam];
-	char* junk;
+	// char tmp_file_path[FILENAME_MAX] = "/tmp/pianobarfly-XXXXXX";
+        char tmp_file_path[FILENAME_MAX];
+        strncpy(tmp_file_path, settings->audioFileDir,strlen(settings->audioFileDir)+1);
+        strncat(tmp_file_path, "/pianobarfly-XXXXXX", 19+1);
 	size_t read_count;
 	size_t write_count;
 
@@ -286,14 +289,9 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 
 	/*
 	 * Open the tmp file.
-	 *
-	 * Assigning the return value of tmpnam() to a junk pointer to get the
-	 * compiler to be quiet.
 	 */
-	junk = tmpnam(tmp_file_path);
-	junk = junk;
-	tmp_file = fopen(tmp_file_path, "w+b");
-	if (tmp_file == NULL) {
+	tmp_file_fd = mkstemp(tmp_file_path);
+	if (tmp_file_fd == -1) {
 		BarUiMsg(settings, MSG_ERR, "Could not open the temporary file (%s) "
 				"(%d:%s).\n", tmp_file_path, errno, strerror(errno));
 		goto error;
@@ -302,7 +300,7 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 	/*
 	 * Write the tag to the tmp file.
 	 */
-	write_count = fwrite(tag_buffer, 1, size2, tmp_file);
+	write_count = write(tmp_file_fd, tag_buffer, size2);
 	if (write_count != size2) {
 		BarUiMsg(settings, MSG_ERR, "Could not write the tag to the file (%s) "
 				"(%d:%s).\n", tmp_file_path, errno, strerror(errno));
@@ -323,7 +321,7 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 			goto error;
 		}
 
-		write_count = fwrite(audio_buffer, 1, read_count, tmp_file);
+		write_count = write(tmp_file_fd, audio_buffer, read_count);
 		if (write_count != read_count) {
 			BarUiMsg(settings, MSG_ERR, "Failed to write to the tmp file "
 					"(%s).\n", tmp_file_path);
@@ -335,8 +333,8 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 	 * The entire contents of the audio file was copied to the tmp file.  Close
 	 * the two files.
 	 */
-	fclose(tmp_file);
-	tmp_file = NULL;
+	close(tmp_file_fd);
+	tmp_file_fd = -1;
 
 	fclose(audio_file);
 	audio_file = NULL;
@@ -370,8 +368,8 @@ end:
 		fclose(audio_file);
 	}
 
-	if (tmp_file != NULL) {
-		fclose(tmp_file);
+	if (tmp_file_fd != 0) {
+		close(tmp_file_fd);
 	}
 
 	return exit_status;
