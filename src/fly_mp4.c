@@ -1915,7 +1915,7 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	 * Open the tmp file.
 	 */
 	tmp_file = mkstemp(tmp_file_path);
-	if (tmp_file != -1) {
+	if (tmp_file == -1) {
 		BarUiMsg(settings, MSG_ERR,
 				"Error opening the temporary file (%s) (%d:%s).\n",
 				tmp_file_path, errno, strerror(errno));
