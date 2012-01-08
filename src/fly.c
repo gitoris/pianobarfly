@@ -1100,7 +1100,6 @@ static int _BarFlyTagID3Write(BarFly_t const* fly, uint8_t const* cover_art,
 	if (cover_art != NULL) {
 		if ((cover_art[0] == 0xFF) && (cover_art[1] == 0xD8)) {
 			mime_type = "image/jpeg";
-			printf("%s\n", mime_type);
 		} else if ((cover_art[0] == 0x89) &&
 			   (cover_art[1] == 0x50) &&
 			   (cover_art[2] == 0x4E) &&
@@ -1110,7 +1109,6 @@ static int _BarFlyTagID3Write(BarFly_t const* fly, uint8_t const* cover_art,
 			   (cover_art[6] == 0x1A) &&
 			   (cover_art[7] == 0x0A)) {
 			mime_type = "image/png";
-			printf("%s\n", mime_type);
 		} else {
 			mime_type = NULL;
 		}
