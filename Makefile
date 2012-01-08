@@ -1,3 +1,4 @@
+# vim: noet
 # makefile of pianobarfly
 
 PREFIX:=/usr/local
@@ -7,12 +8,23 @@ INCDIR:=${PREFIX}/include
 MANDIR:=${PREFIX}/share/man
 DYNLINK:=0
 
+MD5SUM=md5sum
+AWK=awk
+PATCH=patch
+TAR=tar
+
 # Respect environment variables set by user; does not work with :=
 ifeq (${CFLAGS},)
 	CFLAGS=-O2 -DNDEBUG
 endif
 ifeq (${CC},cc)
 	CC=c99
+endif
+
+ifeq ($(OSNAME), Darwin)
+	CC=gcc
+	CFLAGS=-std=c99 -02 -DNDEBUG
+	MD5SUM=md5
 endif
 
 PIANOBAR_DIR=src
@@ -89,10 +101,15 @@ LIBGNUTLS_CFLAGS=
 LIBGNUTLS_LDFLAGS=-lgnutls
 
 ifneq (${DISABLE_ID3TAG}, 1)
-	#LIBID3TAG_CFLAGS=${shell pkg-config --cflags id3tag} -DENABLE_ID3TAG
-	#LIBID3TAG_LDFLAGS=${shell pkg-config --libs id3tag}
-   LIBID3TAG_CFLAGS=-DENABLE_ID3TAG
-   LIBID3TAG_LDFLAGS=-lid3
+#	LIBID3TAG_CFLAGS=${shell pkg-config --cflags id3tag} -DENABLE_ID3TAG
+#	LIBID3TAG_LDFLAGS=${shell pkg-config --libs id3tag}
+ifeq (${BUILD_ID3LIB}, 1)
+	LIBID3TAG_CFLAGS=-DENABLE_ID3TAG -I id3lib-3.8.3/include
+	LIBID3TAG_LDFLAGS=-L./id3lib-3.8.3/src/.libs -lid3
+else
+	LIBID3TAG_CFLAGS=-DENABLE_ID3TAG
+	LIBID3TAG_LDFLAGS=-lid3
+endif
 endif
 
 LIBAO_CFLAGS=${shell pkg-config --cflags ao}
@@ -100,12 +117,23 @@ LIBAO_LDFLAGS=${shell pkg-config --libs ao}
 
 # build pianobarfly
 ifeq (${DYNLINK},1)
+ifeq (${BUILD_ID3LIB}, 1)
+CC=g++
+pianobarfly: id3lib-3.8.3 ${PIANOBAR_OBJ} ${PIANOBAR_HDR} libpiano.so.0
+else
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} libpiano.so.0
+endif
 	${CC} -o $@ ${PIANOBAR_OBJ} ${LDFLAGS} ${LIBAO_LDFLAGS} -lpthread -L. \
 			-lpiano ${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS}
 else
+ifeq (${BUILD_ID3LIB}, 1)
+CC=g++
+pianobarfly: id3lib-3.8.3 ${PIANOBAR_OBJ} ${PIANOBAR_HDR} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} \
+		${LIBWAITRESS_HDR} ${LIBEZXML_OBJ} ${LIBEZXML_HDR}
+else
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} \
 		${LIBWAITRESS_HDR} ${LIBEZXML_OBJ} ${LIBEZXML_HDR}
+endif
 	${CC} ${CFLAGS} ${LDFLAGS} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} \
 			${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ} ${LIBAO_LDFLAGS} -lpthread \
 			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS} ${LIBID3TAG_LDFLAGS} -o $@
@@ -136,6 +164,7 @@ clean:
 	${RM} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} ${LIBWAITRESS_OBJ}/test.o \
 			${LIBEZXML_OBJ} ${LIBPIANO_RELOBJ} ${LIBWAITRESS_RELOBJ} \
 			${LIBEZXML_RELOBJ} pianobarfly libpiano.so* libpiano.a waitress-test
+	${RM} -r id3lib-3.8.3 id3lib-3.8.3.tar.gz patches
 
 all: pianobarfly
 
@@ -168,4 +197,27 @@ install-libpiano:
 	install -d ${DESTDIR}/${INCDIR}/
 	install -m644 src/libpiano/piano.h ${DESTDIR}/${INCDIR}/
 
-.PHONY: install install-libpiano test debug all
+ifeq (${BUILD_ID3LIB}, 1)
+id3lib-3.8.3: id3lib-3.8.3.tar.gz patches
+	@if test `$(MD5SUM) $< | $(AWK) '{print $$1}'` = 19f27ddd2dda4b2d26a559a4f0f402a7; then \
+		echo $(TAR) zxf $< ;\
+		$(TAR) zxf $< ;\
+	else \
+		echo "  $< check sum is wrong (Please use orignal)." ;\
+		rm -rf $@ ;\
+	fi
+	@for v in `cat patches/series` ; do \
+		patch -p1 -d $@ < patches/$$v ; \
+	done
+	@$(PATCH) -d $@ -p0 < c99_guard_globals.h.diff ;
+	@$(PATCH) -d $@ -p0 < configure.diff ;
+	@(cd $@ ; CFLAGS="-DNDEBUG -O3" CXXFLAGS="-DNDEBUG -O3" ./configure --disable-shared --enable-static && make ; )
+
+id3lib-3.8.3.tar.gz:
+	-curl -s -o $@ http://archive.ubuntu.com/ubuntu/pool/main/i/id3lib3.8.3/id3lib3.8.3_3.8.3.orig.tar.gz
+
+patches:
+	-curl -s http://archive.ubuntu.com/ubuntu/pool/main/i/id3lib3.8.3/id3lib3.8.3_3.8.3-13ubuntu1.debian.tar.gz | $(TAR) --strip-components=1 -zxf - debian/patches
+endif
+
+.PHONY: install install-libpiano test debug all clean

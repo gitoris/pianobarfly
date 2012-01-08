@@ -1,0 +1,10 @@
+--- configure.old	2011-12-22 16:25:07.000000000 -0500
++++ configure	2011-12-22 16:25:35.000000000 -0500
+@@ -10296,7 +10296,6 @@
+ 
+ for ac_header in \
+   string                        \
+-  iomanip.h                     \
+ 
+ do
+ as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
