@@ -32,6 +32,7 @@ THE SOFTWARE.
 #include <limits.h>
 #include <assert.h>
 #include <sys/param.h>
+#include <wordexp.h>
 
 #include "settings.h"
 #include "config.h"
@@ -208,7 +209,10 @@ void BarSettingsRead (BarSettings_t *settings) {
 				}
 			} else if (streq ("audio_file_dir", key)) {
 				free (settings->audioFileDir);
-				settings->audioFileDir = strdup(val);
+				wordexp_t pwordexp;
+				wordexp(val, &pwordexp, 0);
+				settings->audioFileDir = strdup(pwordexp.we_wordv[0]);
+				wordfree(&pwordexp);
 			} else if (streq ("audio_file_name", key)) {
 				free (settings->audioFileName);
 				settings->audioFileName = strdup(val);
