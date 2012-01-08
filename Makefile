@@ -26,7 +26,6 @@ PIANOBAR_SRC=\
 		${PIANOBAR_DIR}/ui_readline.c \
 		${PIANOBAR_DIR}/ui_dispatch.c \
 		${PIANOBAR_DIR}/fly.c \
-		${PIANOBAR_DIR}/fly_id3.c \
 		${PIANOBAR_DIR}/fly_misc.c \
 		${PIANOBAR_DIR}/fly_mp4.c
 PIANOBAR_HDR=\
@@ -39,7 +38,6 @@ PIANOBAR_HDR=\
 		${PIANOBAR_DIR}/main.h \
 		${PIANOBAR_DIR}/config.h \
 		${PIANOBAR_DIR}/fly.h \
-		${PIANOBAR_DIR}/fly_id3.h \
 		${PIANOBAR_DIR}/fly_misc.h \
 		${PIANOBAR_DIR}/fly_mp4.h
 PIANOBAR_OBJ=${PIANOBAR_SRC:.c=.o}
@@ -91,8 +89,10 @@ LIBGNUTLS_CFLAGS=
 LIBGNUTLS_LDFLAGS=-lgnutls
 
 ifneq (${DISABLE_ID3TAG}, 1)
-	LIBID3TAG_CFLAGS=${shell pkg-config --cflags id3tag} -DENABLE_ID3TAG
-	LIBID3TAG_LDFLAGS=${shell pkg-config --libs id3tag}
+	#LIBID3TAG_CFLAGS=${shell pkg-config --cflags id3tag} -DENABLE_ID3TAG
+	#LIBID3TAG_LDFLAGS=${shell pkg-config --libs id3tag}
+   LIBID3TAG_CFLAGS=-DENABLE_ID3TAG
+   LIBID3TAG_LDFLAGS=-lid3
 endif
 
 LIBAO_CFLAGS=${shell pkg-config --cflags ao}
