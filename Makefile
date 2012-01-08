@@ -1,3 +1,4 @@
+# -*- indent-tabs-mode: t -*-
 # vim: noet
 # makefile of pianobarfly
 
@@ -12,6 +13,7 @@ MD5SUM=md5sum
 AWK=awk
 PATCH=patch
 TAR=tar
+OSNAME=$(shell uname)
 
 # Respect environment variables set by user; does not work with :=
 ifeq (${CFLAGS},)
@@ -118,23 +120,25 @@ LIBAO_LDFLAGS=${shell pkg-config --libs ao}
 # build pianobarfly
 ifeq (${DYNLINK},1)
 ifeq (${BUILD_ID3LIB}, 1)
-CC=g++
+pianobarfly: CC=g++
 pianobarfly: id3lib-3.8.3 ${PIANOBAR_OBJ} ${PIANOBAR_HDR} libpiano.so.0
 else
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} libpiano.so.0
 endif
-	${CC} -o $@ ${PIANOBAR_OBJ} ${LDFLAGS} ${LIBAO_LDFLAGS} -lpthread -L. \
-			-lpiano ${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS}
+	@echo "   LINK  $@"
+	@${CC} -o $@ ${PIANOBAR_OBJ} ${LDFLAGS} ${LIBAO_LDFLAGS} -lpthread -L. \
+			-lpiano ${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS} ${LIBID3TAG_LDFLAGS}
 else
 ifeq (${BUILD_ID3LIB}, 1)
-CC=g++
+pianobarfly: CC=g++
 pianobarfly: id3lib-3.8.3 ${PIANOBAR_OBJ} ${PIANOBAR_HDR} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} \
 		${LIBWAITRESS_HDR} ${LIBEZXML_OBJ} ${LIBEZXML_HDR}
 else
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} \
 		${LIBWAITRESS_HDR} ${LIBEZXML_OBJ} ${LIBEZXML_HDR}
 endif
-	${CC} ${CFLAGS} ${LDFLAGS} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} \
+	@echo "   LINK $@ (w/ ${CC})"
+	@${CC} ${CFLASG} ${LDFLAGS} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} \
 			${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ} ${LIBAO_LDFLAGS} -lpthread \
 			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS} ${LIBID3TAG_LDFLAGS} -o $@
 endif
@@ -143,28 +147,34 @@ endif
 libpiano.so.0: ${LIBPIANO_RELOBJ} ${LIBPIANO_HDR} ${LIBWAITRESS_RELOBJ} \
 		${LIBWAITRESS_HDR} ${LIBEZXML_RELOBJ} ${LIBEZXML_HDR} \
 		${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ}
-	${CC} -shared -Wl,-soname,libpiano.so.0 ${CFLAGS} ${LDFLAGS} \
+	@echo "   LINK  $@ (w/ ${CC})"
+	@${CC} -shared -Wl,-soname,libpiano.so.0 ${CFLAGS} ${LDFLAGS} \
 			-o libpiano.so.0.0.0 ${LIBPIANO_RELOBJ} \
 			${LIBWAITRESS_RELOBJ} ${LIBEZXML_RELOBJ}
-	ln -s libpiano.so.0.0.0 libpiano.so.0
-	ln -s libpiano.so.0 libpiano.so
-	${AR} rcs libpiano.a ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ}
+	@ln -s libpiano.so.0.0.0 libpiano.so.0
+	@ln -s libpiano.so.0 libpiano.so
+	@echo "     AR  libpiano.a"
+	@${AR} rcs libpiano.a ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ}
 
+%.o: CC:=${CC}
 %.o: %.c
-	${CC} ${CFLAGS} -I ${LIBPIANO_INCLUDE} -I ${LIBWAITRESS_INCLUDE} \
+	@echo "     CC  $<"
+	@${CC} ${CFLAGS} -I ${LIBPIANO_INCLUDE} -I ${LIBWAITRESS_INCLUDE} \
 			-I ${LIBEZXML_INCLUDE} ${LIBFAAD_CFLAGS} \
 			${LIBMAD_CFLAGS} ${LIBGNUTLS_CFLAGS} ${LIBID3TAG_CFLAGS} ${LIBAO_CFLAGS} -c -o $@ $<
 
 # create position independent code (for shared libraries)
 %.lo: %.c
-	${CC} ${CFLAGS} -I ${LIBPIANO_INCLUDE} -I ${LIBWAITRESS_INCLUDE} \
+	@echo "     CC  $< (PIC)"
+	@${CC} ${CFLAGS} -I ${LIBPIANO_INCLUDE} -I ${LIBWAITRESS_INCLUDE} \
 			-I ${LIBEZXML_INCLUDE} -c -fPIC -o $@ $<
 
 clean:
-	${RM} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} ${LIBWAITRESS_OBJ}/test.o \
+	@echo "  CLEAN"
+	@${RM} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} ${LIBWAITRESS_OBJ}/test.o \
 			${LIBEZXML_OBJ} ${LIBPIANO_RELOBJ} ${LIBWAITRESS_RELOBJ} \
 			${LIBEZXML_RELOBJ} pianobarfly libpiano.so* libpiano.a waitress-test
-	${RM} -r id3lib-3.8.3 id3lib-3.8.3.tar.gz patches
+	@${RM} -r id3lib-3.8.3 id3lib-3.8.3.tar.gz patches
 
 all: pianobarfly
 
@@ -200,24 +210,30 @@ install-libpiano:
 ifeq (${BUILD_ID3LIB}, 1)
 id3lib-3.8.3: id3lib-3.8.3.tar.gz patches
 	@if test `$(MD5SUM) $< | $(AWK) '{print $$1}'` = 19f27ddd2dda4b2d26a559a4f0f402a7; then \
-		echo $(TAR) zxf $< ;\
+		echo "EXTRACT $<";\
 		$(TAR) zxf $< ;\
 	else \
 		echo "  $< check sum is wrong (Please use orignal)." ;\
 		rm -rf $@ ;\
 	fi
+
+	@echo "  PATCH $@"
 	@for v in `cat patches/series` ; do \
-		patch -p1 -d $@ < patches/$$v ; \
+		patch -s -p1 -d $@ < patches/$$v ; \
 	done
-	@$(PATCH) -d $@ -p0 < c99_guard_globals.h.diff ;
-	@$(PATCH) -d $@ -p0 < configure.diff ;
+	@$(PATCH) -s -d $@ -p0 < c99_guard_globals.h.diff ;
+	@$(PATCH) -s -d $@ -p0 < configure.diff ;
+
+	@echo "  BUILD $@"
 	@(cd $@ ; CFLAGS="-DNDEBUG -O3" CXXFLAGS="-DNDEBUG -O3" ./configure --disable-shared --enable-static && make ; )
 
 id3lib-3.8.3.tar.gz:
-	-curl -s -o $@ http://archive.ubuntu.com/ubuntu/pool/main/i/id3lib3.8.3/id3lib3.8.3_3.8.3.orig.tar.gz
+	@echo "  FETCH $@"
+	@curl -s -o $@ http://archive.ubuntu.com/ubuntu/pool/main/i/id3lib3.8.3/id3lib3.8.3_3.8.3.orig.tar.gz
 
 patches:
-	-curl -s http://archive.ubuntu.com/ubuntu/pool/main/i/id3lib3.8.3/id3lib3.8.3_3.8.3-13ubuntu1.debian.tar.gz | $(TAR) --strip-components=1 -zxf - debian/patches
+	@echo "  FETCH patches"
+	@curl -s http://archive.ubuntu.com/ubuntu/pool/main/i/id3lib3.8.3/id3lib3.8.3_3.8.3-13ubuntu1.debian.tar.gz | $(TAR) --strip-components=1 -zxf - debian/patches
 endif
 
 .PHONY: install install-libpiano test debug all clean
