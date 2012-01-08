@@ -44,11 +44,34 @@
 #include <waitress.h>
 
 #include "fly.h"
-#include "fly_id3.h"
 #include "fly_misc.h"
 #include "fly_mp4.h"
 #include "settings.h"
 #include "ui.h"
+#include "id3.h"
+
+/**
+ * Apple doesn't have a strndup(), so we roll our own
+ */
+#ifdef __APPLE__
+#ifdef __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 1070
+char * strndup(const char* s, size_t n) {
+  size_t l = strlen(s);
+  char *r = NULL;
+
+  if (l < n)
+    return strdup(s);
+
+  r = (char *) malloc(n+1);
+  if (r == NULL)
+    return NULL;
+
+  strncpy(r, s, n);
+  r[n] ='\0';
+  return r;
+}
+#endif
+#endif
 
 /**
  * Barfly Waitress handle used to fetch the album cover and year.
@@ -1004,114 +1027,107 @@ end:
 static int _BarFlyTagID3Write(BarFly_t const* fly, uint8_t const* cover_art,
 		size_t cover_size, BarSettings_t const* settings)
 {
-	int const BUFFER_SIZE = 5;
-	int const TAG_PADDED_SIZE = 1024;
-	char const BAR_FLY_ID3_FRAME_DISC[] = "TPOS";
-
 	int exit_status = 0;
-	int status;
-	struct id3_tag* tag;
-	char buffer[BUFFER_SIZE];
+	char * s = NULL;
+	ID3Frame* frame = NULL;
+	ID3Field* field = NULL;
 
-	assert(fly != NULL);
-	assert(fly->audio_file_path != NULL);
-	assert(settings != NULL);
+	// new tag
+	ID3Tag* tag = ID3Tag_New();
+	ID3Tag_Link(tag, fly->audio_file_path);
+	ID3Tag_Clear(tag);
 
-	/*
-	 * Set the minimum size for the tag.  The tag will use CRC and compression.
-	 * FIXME - figure out if the padded size is really needed.
-	 */
-	tag = id3_tag_new();
-	if (tag == NULL) {
-		BarUiMsg(settings, MSG_ERR, "Failed to create new tag.\n");
-		goto error;
-	}
-	id3_tag_setlength(tag, TAG_PADDED_SIZE);
-	id3_tag_options(tag,
-			ID3_TAG_OPTION_UNSYNCHRONISATION |
-			ID3_TAG_OPTION_APPENDEDTAG |
-			ID3_TAG_OPTION_CRC |
-			ID3_TAG_OPTION_COMPRESSION, 0);
+	// artist
+	frame = ID3Frame_NewID(ID3FID_LEADARTIST);
+	field = ID3Frame_GetField(frame, ID3FN_TEXT);
+	ID3Field_Clear(field);
+	ID3Field_SetASCII(field, fly->artist);
+	ID3Tag_AddFrame(tag, frame);
+	ID3Frame_Delete(frame);
 
-	/*
-	 * Add the data to the tag.
-	 */
-	status = BarFlyID3AddFrame(tag, ID3_FRAME_ARTIST, fly->artist, settings); 
-	if (status != 0) {
-		BarUiMsg(settings, MSG_ERR, "Failed to write artist to tag.\n");
-		goto error;
-	}
+	// album
+	frame = ID3Frame_NewID(ID3FID_ALBUM);
+	field = ID3Frame_GetField(frame, ID3FN_TEXT);
+	ID3Field_Clear(field);
+	ID3Field_SetASCII(field, fly->album);
+	ID3Tag_AddFrame(tag, frame);
+	ID3Frame_Delete(frame);
 
-	status = BarFlyID3AddFrame(tag, ID3_FRAME_ALBUM, fly->album, settings);
-	if (status != 0) {
-		BarUiMsg(settings, MSG_ERR, "Failed to write album to tag.\n");
-		goto error;
-	}
+	// title
+	frame = ID3Frame_NewID(ID3FID_TITLE);
+	field = ID3Frame_GetField(frame, ID3FN_TEXT);
+	ID3Field_Clear(field);
+	ID3Field_SetASCII(field, fly->title);
+	ID3Tag_AddFrame(tag, frame);
+	ID3Frame_Delete(frame);
 
-	status = BarFlyID3AddFrame(tag, ID3_FRAME_TITLE, fly->title, settings);
-	if (status != 0) {
-		BarUiMsg(settings, MSG_ERR, "Failed to write title to tag.\n");
-		goto error;
-	}
-
+	// year
 	if (fly->year != 0) {
-		snprintf(buffer, BUFFER_SIZE, "%hu", fly->year);
-		buffer[BUFFER_SIZE - 1] = '\0';
-		status = BarFlyID3AddFrame(tag, ID3_FRAME_YEAR, buffer, settings);
-		if (status != 0) {
-			BarUiMsg(settings, MSG_ERR, "Failed to write year to tag.\n");
+		s = (char *) malloc(sizeof(fly->year)+1);
+		if (s != NULL) {
+			frame = ID3Frame_NewID(ID3FID_YEAR);
+			field = ID3Frame_GetField(frame, ID3FN_TEXT);
+			ID3Field_Clear(field);
+			snprintf(s, sizeof(fly->year)+1, "%i", fly->year);
+			ID3Field_SetASCII(field, s);
+			ID3Tag_AddFrame(tag, frame);
+			ID3Frame_Delete(frame);
+			free(s);
+			s = NULL;
+		} else {
+			BarUiMsg(settings, MSG_ERR, "Error adding the year to the tag.\n");
 			goto error;
 		}
 	}
 
+	// track
 	if (fly->track != 0) {
-		snprintf(buffer, BUFFER_SIZE, "%hu", fly->track);
-		buffer[BUFFER_SIZE - 1] = '\0';
-		status = BarFlyID3AddFrame(tag, ID3_FRAME_TRACK, buffer, settings);
-		if (status != 0) {
-			BarUiMsg(settings, MSG_ERR, "Failed to write track number to tag.\n");
+		s = (char *) malloc(sizeof(fly->track)+1);
+		if (s != NULL) {
+			frame = ID3Frame_NewID(ID3FID_TRACKNUM);
+			field = ID3Frame_GetField(frame, ID3FN_TEXT);
+			ID3Field_Clear(field);
+			snprintf(s, sizeof(fly->track)+1, "%i", fly->track);
+			ID3Field_SetASCII(field, s);
+			ID3Tag_AddFrame(tag, frame);
+			ID3Frame_Delete(frame);
+			free(s);
+			s = NULL;
+		} else {
+			BarUiMsg(settings, MSG_ERR, "Error adding the track to the tag.\n");
 			goto error;
 		}
 	}
 
+	// disc
 	if (fly->disc != 0) {
-		snprintf(buffer, BUFFER_SIZE, "%hu", fly->disc);
-		buffer[BUFFER_SIZE - 1] = '\0';
-		status = BarFlyID3AddFrame(tag, BAR_FLY_ID3_FRAME_DISC, buffer,
-				settings);
-		if (status != 0) {
-			BarUiMsg(settings, MSG_ERR, "Failed to write disc number to tag.\n");
+		s = (char *) malloc(sizeof(int)+1);
+		if (s != NULL) {
+			frame = ID3Frame_NewID(ID3FID_PARTINSET);
+			field = ID3Frame_GetField(frame, ID3FN_TEXT);
+			ID3Field_Clear(field);
+			snprintf(s, sizeof(int)+1, "%i", fly->disc);
+			ID3Field_SetASCII(field, s);
+			ID3Tag_AddFrame(tag, frame);
+			ID3Frame_Delete(frame);
+			free(s);
+			s = NULL;
+		} else {
+			BarUiMsg(settings, MSG_ERR, "Error adding the disc to the tag.\n");
 			goto error;
 		}
 	}
 
-	if (cover_art != NULL) {
-		status = BarFlyID3AddCover(tag, cover_art, cover_size, settings);
-		if (status != 0) {
-			BarUiMsg(settings, MSG_ERR, "Failed to write cover to tag.\n");
-			goto error;
-		}
-	}
-
-	/*
-	 * Write the tag to the file.
-	 */
-	status = BarFlyID3WriteFile(fly->audio_file_path, tag, settings);
-	if (status != 0) {
-		BarUiMsg(settings, MSG_ERR, "Failed to write the tag.\n");
-		goto error;
-	}
-
+	// write tag to the file
+	ID3Tag_Update(tag);
 	goto end;
 
 error:
+	BarUiMsg(settings, MSG_ERR, "Aborting tagging.\n");
 	exit_status = -1;
 
 end:
-	if (tag != NULL) {
-		id3_tag_delete(tag);
-	}
-
+	ID3Tag_Delete(tag);
 	return exit_status;
 }
 #endif
