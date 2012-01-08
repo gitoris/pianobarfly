@@ -1,0 +1,41 @@
+Introduction
+============
+
+This version replaces libid3tag (http://www.underbit.com/products/mad)
+with id3lib (http://id3lib.sf.net). The reason for this is that I was
+experiencing corrupted tags with the libid3tag version. This made for
+a fustrating experience importing files into my greater library, both
+with the primary GUI and the command line tools I use for organizing
+my library.
+
+Installation
+============
+
+If you want to install this version you can use the "Easy Way" or the
+"Hard Way".
+
+Easy Way
+--------
+
+Install your OS's development package of id3lib. On Ubuntu Oneiric,
+this is libid3-3.8.3-dev. Next apply "c99_guard_globals.h.diff" to
+/usr/include/id3/globals.h. It should apply fine (with "Fuzz"). If
+not, take a look at the patch and make the changes by hand. The patch
+is simple enough. Next, run
+
+	make
+
+, and everything will build.
+
+Hard Way
+--------
+
+If you don't want to mess with changing files installed by your
+package manager, you can run
+
+	make BUILD_ID3LIB=1
+
+, and the build system will download id3lib, patch it, and build it in
+this directory. It will then link in a static version of id3lib. This
+process is naturally more fragile than the "Easy Way" due to upstream
+changes.
