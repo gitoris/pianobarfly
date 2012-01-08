@@ -12,6 +12,7 @@ MD5SUM=md5sum
 AWK=awk
 PATCH=patch
 TAR=tar
+OSNAME=$(shell uname)
 
 # Respect environment variables set by user; does not work with :=
 ifeq (${CFLAGS},)
