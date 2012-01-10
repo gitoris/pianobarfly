@@ -95,8 +95,13 @@ ifneq (${DISABLE_FAAD}, 1)
 endif
 
 ifneq (${DISABLE_MAD}, 1)
+ifneq (${OSNAME}, Darwin)
 	LIBMAD_CFLAGS=${shell pkg-config --cflags mad} -DENABLE_MAD
 	LIBMAD_LDFLAGS=${shell pkg-config --libs mad}
+else
+	LIBMAD_CFLAGS=-DENABLE_MAD
+	LIBMAD_LDFLAGS=-lmad
+endif
 endif
 
 LIBGNUTLS_CFLAGS=
@@ -114,8 +119,13 @@ else
 endif
 endif
 
-LIBAO_CFLAGS=${shell pkg-config --cflags ao}
-LIBAO_LDFLAGS=${shell pkg-config --libs ao}
+ifneq (${OSNAME}, Darwin)
+	LIBAO_CFLAGS=${shell pkg-config --cflags ao}
+	LIBAO_LDFLAGS=${shell pkg-config --libs ao}
+else
+	LIBAO_CFLAGS=
+	LIBAO_LDFLAGS=-lao
+endif
 
 # build pianobarfly
 ifeq (${DYNLINK},1)
