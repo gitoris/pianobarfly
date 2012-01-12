@@ -106,7 +106,6 @@ static bool BarMainLoginUser (BarApp_t *app) {
  */
 static void BarMainGetLoginCredentials (BarSettings_t *settings,
 		BarReadlineFds_t *input) {
-	ssize_t r = 0;
 
 	if (settings->username == NULL) {
 		char nameBuf[100];
@@ -118,7 +117,7 @@ static void BarMainGetLoginCredentials (BarSettings_t *settings,
 		char passBuf[100];
 		BarUiMsg (settings, MSG_QUESTION, "Password: ");
 		BarReadlineStr (passBuf, sizeof (passBuf), input, BAR_RL_NOECHO);
-		r = write (STDIN_FILENO, "\n", 1);
+		puts("");
 		settings->password = strdup (passBuf);
 	}
 }
