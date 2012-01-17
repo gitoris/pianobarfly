@@ -48,7 +48,10 @@
 #include "fly_mp4.h"
 #include "settings.h"
 #include "ui.h"
+
+#ifdef ENABLE_ID3TAG
 #include "id3.h"
+#endif
 
 /**
  * Apple doesn't have a strndup(), so we roll our own
