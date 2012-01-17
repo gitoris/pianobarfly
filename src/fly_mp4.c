@@ -687,7 +687,7 @@ static int _BarFlyMp4AtomRender(BarFlyMp4Atom_t const* atom, FILE* in_file,
 {
 	int exit_status = 0;
 	int status;
-	size_t write_count;
+	ssize_t write_count;
 	int index;
 	size_t read_count;
 	size_t data_size;
@@ -1901,7 +1901,7 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	uint8_t audio_buffer[BAR_FLY_COPY_BLOCK_SIZE];
 	size_t audio_buf_size;
 	size_t read_count;
-	size_t write_count;
+	ssize_t write_count;
 	char tmp_file_path[FILENAME_MAX];
 	strncpy(tmp_file_path, settings->audioFileDir,strlen(settings->audioFileDir)+1);
 	strncat(tmp_file_path, "/pianobarfly-XXXXXX", 19+1);
@@ -1915,7 +1915,7 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	 * Open the tmp file.
 	 */
 	tmp_file = mkstemp(tmp_file_path);
-	if (tmp_file != -1) {
+	if (tmp_file == -1) {
 		BarUiMsg(settings, MSG_ERR,
 				"Error opening the temporary file (%s) (%d:%s).\n",
 				tmp_file_path, errno, strerror(errno));
