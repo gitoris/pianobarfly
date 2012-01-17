@@ -179,7 +179,7 @@ clean:
 all: pianobarfly
 
 debug: pianobarfly
-debug: CFLAGS=-Wall -pedantic -ggdb -DDEBUG
+debug: CFLAGS=-std=c99 -Wall -pedantic -ggdb -DDEBUG
 
 waitress-test: CFLAGS+= -DTEST
 waitress-test: ${LIBWAITRESS_OBJ}
