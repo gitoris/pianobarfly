@@ -48,7 +48,10 @@
 #include "fly_mp4.h"
 #include "settings.h"
 #include "ui.h"
+
+#ifdef ENABLE_ID3TAG
 #include "id3.h"
+#endif
 
 /**
  * Barfly Waitress handle used to fetch the album cover and year.
