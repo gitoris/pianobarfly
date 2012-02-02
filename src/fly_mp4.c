@@ -1556,7 +1556,7 @@ int BarFlyMp4TagAddGrouping(BarFlyMp4Tag_t* tag, char const* grouping,
 	int status;
 
 	assert(tag != NULL);
-	assert(album != NULL);
+	assert(grouping != NULL);
 	assert(settings != NULL);
 
 	/*
