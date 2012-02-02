@@ -1065,6 +1065,14 @@ static int _BarFlyTagID3Write(BarFly_t const* fly, uint8_t const* cover_art,
 	ID3Tag_AddFrame(tag, frame);
 	ID3Frame_Delete(frame);
 
+	// TIT1, aka "grouping field"
+	frame = ID3Frame_NewID(ID3FID_CONTENTGROUP);
+	field = ID3Frame_GetField(frame, ID3FN_TEXT);
+	ID3Field_Clear(field);
+	ID3Field_SetASCII(field, fly->stationName);
+	ID3Tag_AddFrame(tag, frame);
+	ID3Frame_Delete(frame);
+
 	// year
 	if (fly->year != 0) {
 		s = (char *) malloc(sizeof(fly->year)+1);
@@ -1244,6 +1252,12 @@ static int _BarFlyTagMp4Write(BarFly_t const* fly, uint8_t const* cover_art,
 			BarUiMsg(settings, MSG_ERR, "Error adding the cover to the tag.\n");
 			goto error;
 		}
+	}
+
+	status = BarFlyMp4TagAddGrouping(tag, fly->stationName, settings);
+	if (status != 0) {
+		BarUiMsg(settings, MSG_ERR, "Error adding the grouping to the tag.\n");
+		goto error;
 	}
 
 	/*
@@ -1524,6 +1538,8 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 	strncpy(output_fly.title, song->title, BAR_FLY_NAME_LENGTH);
 	output_fly.title[BAR_FLY_NAME_LENGTH - 1] = '\0';
 	output_fly.audio_format = song->audioFormat;
+	strncpy(output_fly.stationName, fly->stationName, strlen(fly->stationName) + 1);
+	output_fly.stationName[BAR_FLY_NAME_LENGTH - 1] = '\0';
 
 	/*
 	 * Get the song content URL and extract the cover art URL.  The song
