@@ -219,6 +219,45 @@ usually the value above). See section
 .B REMOTE CONTROL
 
 .TP
+.B force_tls = {0,1}
+Use TLS for all actions (not just sending login credentials). Use if you are on
+an untrusted network or to get around GeoIP restrictions.
+
+.TP
+.B format_list_song = %i) %a - %t%r
+Available format characters:
+
+.B %i
+Song number
+
+.B %a
+Song artist
+
+.B %t
+Song title
+
+.B %r
+Rating icon
+
+.TP
+.B format_msg_none = %s
+.TQ
+.B format_msg_info = (i) %s
+.TQ
+.B format_msg_nowplaying = |>  %s
+.TQ
+.B format_msg_time = #   %s
+.TQ
+.B format_msg_err = /!\\\\ %s
+.TQ
+.B format_msg_question = [?] %s
+.TQ
+.B format_msg_list = \\t%s
+Message format strings.
+.B %s
+is replaced with the actual message.
+
+.TP
 .B format_nowplaying_song = \[dq]%t\[dq] by \[dq]%a\[dq] on \[dq]%l\[dq]%r%@%s
 Now playing song message format. Available format characters are:
 

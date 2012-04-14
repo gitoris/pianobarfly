@@ -124,6 +124,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 		#endif
 	#endif
 	settings->autoselect = true;
+	settings->forceTls = false;
 	settings->history = 5;
 	settings->volume = 0;
 	settings->sortOrder = BAR_SORT_NAME_AZ;
@@ -261,11 +262,16 @@ void BarSettingsRead (BarSettings_t *settings) {
 			} else if (streq ("format_nowplaying_station", key)) {
 				free (settings->npStationFormat);
 				settings->npStationFormat = strdup (val);
+			} else if (streq ("format_list_song", key)) {
+				free (settings->listSongFormat);
+				settings->listSongFormat = strdup (val);
 			} else if (streq ("fifo", key)) {
 				free (settings->fifo);
 				settings->fifo = strdup (val);
 			} else if (streq ("autoselect", key)) {
 				settings->autoselect = atoi (val);
+			} else if (streq ("force_tls", key)) {
+				settings->forceTls = atoi (val);
 			} else if (streq ("tls_fingerprint", key)) {
 				/* expects 40 byte hex-encoded sha1 */
 				if (strlen (val) == 40) {
