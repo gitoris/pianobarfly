@@ -241,7 +241,7 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
         strncpy(tmp_file_path, settings->audioFileDir,strlen(settings->audioFileDir)+1);
         strncat(tmp_file_path, "/pianobarfly-XXXXXX", 19+1);
 	size_t read_count;
-	size_t write_count;
+	ssize_t write_count;
 
 	/*
 	 * For starters libid3tag kinda sucks.  It will only write a tag to a file 
