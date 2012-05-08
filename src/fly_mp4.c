@@ -1903,8 +1903,9 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	size_t read_count;
 	ssize_t write_count;
 	char tmp_file_path[FILENAME_MAX];
-	strncpy(tmp_file_path, settings->audioFileDir,strlen(settings->audioFileDir)+1);
-	strncat(tmp_file_path, "/pianobarfly-XXXXXX", 19+1);
+	strncpy(tmp_file_path, settings->audioFileDir,sizeof(tmp_file_path)-1);
+	tmp_file_path[sizeof(tmp_file_path)-1] = '\0';
+	strncat(tmp_file_path, "/pianobarfly-XXXXXX", sizeof(tmp_file_path) - strlen(tmp_file_path) - 1);
 	size_t atom_size;
 	BarFlyMp4Atom_t* atom;
 
