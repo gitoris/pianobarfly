@@ -275,7 +275,6 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 							"<?xml version=\"1.0\"?><methodCall>"
 							"<methodName>listener.authenticateListener</methodName>"
 							"<params><param><value><int>%lu</int></value></param>"
-							"<param><value><string></string></value></param>"
 							/* user */
 							"<param><value><string>%s</string></value></param>"
 							/* password */
@@ -907,15 +906,14 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 					if (ret == PIANO_RET_OK && cryptedTimestamp != NULL) {
 						unsigned long timestamp = 0;
 						const time_t realTimestamp = time (NULL);
-						char *decryptedTimestamp = NULL, *decryptedPos = NULL;
-						unsigned char i = 4;
+						char *decryptedTimestamp = NULL;
+						size_t decryptedSize;
 
 						ret = PIANO_RET_ERR;
-						if ((decryptedTimestamp = PianoDecryptString (cryptedTimestamp)) != NULL) {
-							decryptedPos = decryptedTimestamp;
-							/* skip four bytes garbage? at beginning */
-							while (i-- > 0 && *decryptedPos++ != '\0');
-							timestamp = strtoul (decryptedPos, NULL, 0);
+						if ((decryptedTimestamp = PianoDecryptString (cryptedTimestamp,
+								&decryptedSize)) != NULL && decryptedSize > 4) {
+							/* skip four bytes garbage(?) at beginning */
+							timestamp = strtoul (decryptedTimestamp+4, NULL, 0);
 							ph->timeOffset = realTimestamp - timestamp;
 							ret = PIANO_RET_CONTINUE_REQUEST;
 						}

@@ -188,8 +188,8 @@ clean:
 
 all: pianobarfly
 
-debug: pianobarfly
-debug: CFLAGS=-std=c99 -Wall -pedantic -ggdb -DDEBUG
+debug: pianobar
+debug: CFLAGS=-std=c99 -DDEBUG -pedantic -ggdb -Wall -Wmissing-declarations -Wshadow -Wcast-qual
 
 waitress-test: CFLAGS+= -DTEST
 waitress-test: ${LIBWAITRESS_OBJ}

@@ -140,14 +140,15 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
 /*	fetch http resource (post request)
  *	@param waitress handle
  *	@param piano request (initialized by PianoRequest())
+ *	@param ignore libpiano TLS hint and use it always
  */
 static WaitressReturn_t BarPianoHttpRequest (WaitressHandle_t *waith,
-		PianoRequest_t *req) {
+		PianoRequest_t *req, bool forceTls) {
 	waith->extraHeaders = "Content-Type: text/xml\r\n";
 	waith->postData = req->postData;
 	waith->method = WAITRESS_METHOD_POST;
 	waith->url.path = req->urlPath;
-	waith->url.tls = req->secure;
+	waith->url.tls = req->secure || forceTls;
 
 	return WaitressFetchBuf (waith, &req->responseData);
 }
@@ -178,7 +179,7 @@ int BarUiPianoCall (BarApp_t * const app, PianoRequestType_t type,
 			return 0;
 		}
 
-		*wRet = BarPianoHttpRequest (&app->waith, &req);
+		*wRet = BarPianoHttpRequest (&app->waith, &req, app->settings.forceTls);
 		if (*wRet != WAITRESS_RET_OK) {
 			BarUiMsg (&app->settings, MSG_NONE, "Network error: %s\n", WaitressErrorToStr (*wRet));
 			if (req.responseData != NULL) {
@@ -242,16 +243,16 @@ int BarUiPianoCall (BarApp_t * const app, PianoRequestType_t type,
 /*	Station sorting functions */
 
 static inline int BarStationQuickmix01Cmp (const void *a, const void *b) {
-	const PianoStation_t *stationA = *((PianoStation_t **) a),
-			*stationB = *((PianoStation_t **) b);
+	const PianoStation_t *stationA = *((PianoStation_t * const *) a),
+			*stationB = *((PianoStation_t * const *) b);
 	return stationA->isQuickMix - stationB->isQuickMix;
 }
 
 /*	sort by station name from a to z, case insensitive
  */
 static inline int BarStationNameAZCmp (const void *a, const void *b) {
-	const PianoStation_t *stationA = *((PianoStation_t **) a),
-			*stationB = *((PianoStation_t **) b);
+	const PianoStation_t *stationA = *((PianoStation_t * const *) a),
+			*stationB = *((PianoStation_t * const *) b);
 	return strcasecmp (stationA->name, stationB->name);
 }
 
@@ -336,14 +337,17 @@ static PianoStation_t **BarSortedStations (PianoStation_t *unsortedStations,
 
 /*	let user pick one station
  *	@param app handle
+ *	@param stations that should be listed
  *	@param prompt string
  *	@param called if input was not a number
+ *	@param auto-select if only one station remains after filtering
  *	@return pointer to selected station or NULL
  */
 PianoStation_t *BarUiSelectStation (BarApp_t *app, PianoStation_t *stations,
-		const char *prompt, BarUiSelectStationCallback_t callback) {
+		const char *prompt, BarUiSelectStationCallback_t callback,
+		bool autoselect) {
 	PianoStation_t **sortedStations = NULL, *retStation = NULL;
-	size_t stationCount, i;
+	size_t stationCount, i, lastDisplayed, displayCount;
 	char buf[100];
 
 	if (stations == NULL) {
@@ -358,6 +362,7 @@ PianoStation_t *BarUiSelectStation (BarApp_t *app, PianoStation_t *stations,
 			app->settings.sortOrder);
 
 	do {
+		displayCount = 0;
 		for (i = 0; i < stationCount; i++) {
 			const PianoStation_t *currStation = sortedStations[i];
 			/* filter stations */
@@ -367,26 +372,33 @@ PianoStation_t *BarUiSelectStation (BarApp_t *app, PianoStation_t *stations,
 						currStation->isQuickMix ? 'Q' : ' ',
 						!currStation->isCreator ? 'S' : ' ',
 						currStation->name);
+				++displayCount;
+				lastDisplayed = i;
 			}
 		}
 
 		BarUiMsg (&app->settings, MSG_QUESTION, prompt);
-		if (BarReadlineStr (buf, sizeof (buf), &app->input,
-				BAR_RL_DEFAULT) == 0) {
-			free (sortedStations);
-			return NULL;
-		}
-
-		if (isnumeric (buf)) {
-			unsigned long selected = strtoul (buf, NULL, 0);
-			if (selected < stationCount) {
-				retStation = sortedStations[selected];
+		if (autoselect && displayCount == 1 && stationCount != 1) {
+			/* auto-select last remaining station */
+			BarUiMsg (&app->settings, MSG_NONE, "%i\n", lastDisplayed);
+			retStation = sortedStations[lastDisplayed];
+		} else {
+			if (BarReadlineStr (buf, sizeof (buf), &app->input,
+					BAR_RL_DEFAULT) == 0) {
+				break;
 			}
-		}
 
-		/* hand over buffer to external function if it was not a station number */
-		if (retStation == NULL && callback != NULL) {
-			callback (app, buf);
+			if (isnumeric (buf)) {
+				unsigned long selected = strtoul (buf, NULL, 0);
+				if (selected < stationCount) {
+					retStation = sortedStations[selected];
+				}
+			}
+
+			/* hand over buffer to external function if it was not a station number */
+			if (retStation == NULL && callback != NULL) {
+				callback (app, buf);
+			}
 		}
 	} while (retStation == NULL);
 
@@ -573,9 +585,6 @@ void BarStationFromGenre (BarApp_t *app) {
 
 	/* receive genre stations list if not yet available */
 	if (app->ph.genreStations == NULL) {
-		PianoReturn_t pRet;
-		WaitressReturn_t wRet;
-
 		BarUiMsg (&app->settings, MSG_INFO, "Receiving genre stations... ");
 		if (!BarUiPianoCall (app, PIANO_REQUEST_GET_GENRE_STATIONS, NULL,
 				&pRet, &wRet)) {
@@ -591,16 +600,19 @@ void BarStationFromGenre (BarApp_t *app) {
 		i++;
 		curCat = curCat->next;
 	}
-	/* select category or exit */
-	BarUiMsg (&app->settings, MSG_QUESTION, "Select category: ");
-	if (BarReadlineInt (&i, &app->input) == 0) {
-		return;
-	}
-	curCat = app->ph.genreStations;
-	while (curCat != NULL && i > 0) {
-		curCat = curCat->next;
-		i--;
-	}
+
+	do {
+		/* select category or exit */
+		BarUiMsg (&app->settings, MSG_QUESTION, "Select category: ");
+		if (BarReadlineInt (&i, &app->input) == 0) {
+			return;
+		}
+		curCat = app->ph.genreStations;
+		while (curCat != NULL && i > 0) {
+			curCat = curCat->next;
+			i--;
+		}
+	} while (curCat == NULL);
 	
 	/* print all available stations */
 	curGenre = curCat->genres;
@@ -610,15 +622,19 @@ void BarStationFromGenre (BarApp_t *app) {
 		i++;
 		curGenre = curGenre->next;
 	}
-	BarUiMsg (&app->settings, MSG_QUESTION, "Select genre: ");
-	if (BarReadlineInt (&i, &app->input) == 0) {
-		return;
-	}
-	curGenre = curCat->genres;
-	while (curGenre != NULL && i > 0) {
-		curGenre = curGenre->next;
-		i--;
-	}
+
+	do {
+		BarUiMsg (&app->settings, MSG_QUESTION, "Select genre: ");
+		if (BarReadlineInt (&i, &app->input) == 0) {
+			return;
+		}
+		curGenre = curCat->genres;
+		while (curGenre != NULL && i > 0) {
+			curGenre = curGenre->next;
+			i--;
+		}
+	} while (curGenre == NULL);
+
 	/* create station */
 	BarUiMsg (&app->settings, MSG_INFO, "Adding shared station \"%s\"... ", curGenre->name);
 	reqData.id = curGenre->musicId;
@@ -633,7 +649,7 @@ void BarStationFromGenre (BarApp_t *app) {
  *	@param format characters
  *	@param replacement for each given format character
  */
-void BarUiCustomFormat (char *dest, size_t destSize, const char *format,
+static void BarUiCustomFormat (char *dest, size_t destSize, const char *format,
 		const char *formatChars, const char **formatVals) {
 	bool haveFormatChar = false;
 
@@ -711,7 +727,7 @@ inline void BarUiPrintStation (const BarSettings_t *settings,
 	BarUiCustomFormat (outstr, sizeof (outstr), settings->npStationFormat,
 			"ni", vals);
 	BarUiAppendNewline (outstr, sizeof (outstr));
-	BarUiMsg (settings, MSG_PLAYING, outstr);
+	BarUiMsg (settings, MSG_PLAYING, "%s", outstr);
 }
 
 /*	Print song infos (artist, title, album, loved)
@@ -731,7 +747,7 @@ inline void BarUiPrintSong (const BarSettings_t *settings,
 	BarUiCustomFormat (outstr, sizeof (outstr), settings->npSongFormat,
 			"talr@su", vals);
 	BarUiAppendNewline (outstr, sizeof (outstr));
-	BarUiMsg (settings, MSG_PLAYING, outstr);
+	BarUiMsg (settings, MSG_PLAYING, "%s", outstr);
 }
 
 /*	Print list of songs
@@ -758,7 +774,7 @@ size_t BarUiListSongs (const BarSettings_t *settings,
 			BarUiCustomFormat (outstr, sizeof (outstr), settings->listSongFormat,
 					"iatr", vals);
 			BarUiAppendNewline (outstr, sizeof (outstr));
-			BarUiMsg (settings, MSG_LIST, outstr);
+			BarUiMsg (settings, MSG_LIST, "%s", outstr);
 		}
 		i++;
 		song = song->next;
